@@ -16,23 +16,8 @@ requirements:
     - setuptools
     - pip
     - numpy
-    - scipy
-    - pytables
-    - h5py
-    - six
-    - cython
     - ipython
-    - matplotlib
-    - pyqtgraph
-    - pyqt
-    - nose
-    - astropy
-    - pyyaml
-    - pandas
-    - notebook
-    - seaborn
     - quantities
-    - exdir
     - gitpython
 
   run:
@@ -40,28 +25,13 @@ requirements:
     - setuptools
     - pip
     - numpy
-    - scipy
-    - pytables
-    - h5py
-    - six
-    - cython
     - ipython
-    - matplotlib
-    - pyqtgraph
-    - pyqt
-    - nose
-    - astropy
-    - pyyaml
-    - pandas
-    - notebook
-    - seaborn
     - quantities
-    - exdir
     - gitpython
 
 test:
   imports:
-    - expipe
+    - expipe-cli
   # requires:
     # - sphinx
   # commands:
@@ -70,6 +40,6 @@ test:
     # - docs
 
 about:
-  home: https://github.com/CINPLA/expipe/
+  home: https://github.com/CINPLA/expipe-cli/
   license: GPLv3
   license_file: LICENSE
