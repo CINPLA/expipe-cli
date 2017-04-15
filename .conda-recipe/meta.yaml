@@ -1,5 +1,5 @@
 package:
-    name: exdir-cli
+    name: expipe-cli
     version: {{ environ.get("GIT_TAG", "0.0.0_custom")|replace("v", "")|replace("-", "_") }}
 source:
     git_url: ..
@@ -11,13 +11,13 @@ requirements:
     run:
         - future
         - python
-        - exdir
+        - expipe
 test:
   script:
-    exdir --help
+    expipe --help
 about:
     description: ''
-    dev_url: https://github.com/CINPLA/exdir-cli
+    dev_url: https://github.com/CINPLA/expipe-cli
     license: GNU GPLv3
     license_family: GPL
     license_file: LICENSE
