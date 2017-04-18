@@ -65,6 +65,8 @@ def discover_plugins():
     exs = []
     for path in paths:
         exs.extend(glob.glob(op.join(path, 'plugin-expipe-*')))
+    if len(exs) == 0:
+        return
     # TODO reveal plugin module in a non ugly way
     for executable in exs:
         process = subprocess.check_output(executable, shell=True)
