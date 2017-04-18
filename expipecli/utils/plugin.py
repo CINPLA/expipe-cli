@@ -18,6 +18,7 @@ import os.path as op
 import glob
 from six import with_metaclass
 import subprocess
+import platform
 
 from .misc import _fullname
 
@@ -63,8 +64,12 @@ def get_plugin(name):
 def discover_plugins():
     paths = os.environ['PATH'].split(os.pathsep)
     exs = []
+    if platform.system() == "Windows":
+        ext = '.exe'
+    else:
+        ext = ''
     for path in paths:
-        exs.extend(glob.glob(op.join(path, 'plugin-expipe-*')))
+        exs.extend(glob.glob(op.join(path, 'plugin-expipe-*' + ext)))
     if len(exs) == 0:
         return IPluginRegistry.plugins
     # TODO reveal plugin module in a non ugly way
@@ -74,6 +79,7 @@ def discover_plugins():
     if text.startswith("b'"):
         text = text[2:]
     for output in text.split('\\n'):
+        output = output.strip('\\r')
         if output.endswith('.py') and op.exists(output):
             directory, modname = op.split(output)
             modname, _ = op.splitext(modname)
