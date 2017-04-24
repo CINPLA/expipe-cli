@@ -12,7 +12,6 @@ Code from http://eli.thegreenplace.net/2012/08/07/fundamental-concepts-of-plugin
 #------------------------------------------------------------------------------
 
 import imp
-import logging
 import os
 import os.path as op
 import glob
