@@ -5,10 +5,11 @@ source:
     git_url: ..
 build:
     script: python setup.py install
-    
+    noarch: python
+
 entry_points:
   - expipe = expipecli.main:expipe
-    
+
 requirements:
     build:
         - future
