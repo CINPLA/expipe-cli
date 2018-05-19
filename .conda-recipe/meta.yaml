@@ -17,6 +17,7 @@ requirements:
         - future
         - python
         - expipe
+        - six
 test:
   script:
     expipe --help
