@@ -12,7 +12,9 @@ import os
 import os.path as op
 import sys
 import click
+import pathlib
 from .utils import discover_plugins, IPlugin
+import expipe as expipe_module
 
 
 # ------------------------------------------------------------------------------
@@ -30,35 +32,23 @@ def expipe(ctx):
     Note that you can get help from a COMMAND by "expipe COMMAND --help"
     """
     pass
+    #TODO discovery
+    #
 
 
 class Default(IPlugin):
     def attach_to_cli(self, cli):
-        @cli.command('configure')
-        @click.option('--data-path',
-                      type=click.STRING,
-                      help='Path to where data files should be stored',
-                      )
-        @click.option('--email',
-                      type=click.STRING,
-                      help='User email on Firebase server',
-                      )
-        @click.option('--password',
-                      type=click.STRING,
-                      help='User password on Firebase server (WARNING: Will be stored in plain text!)',
-                      )
-        @click.option('--url_prefix',
-                      type=click.STRING,
-                      help='Prefix of Firebase server URL (https://<url_prefix>.firebaseio.com)',
-                      )
-        @click.option('--api_key',
-                      type=click.STRING,
-                      help='Firebase API key',
-                      )
-        def configure(data_path, email, password, url_prefix, api_key):
-            """Create a configuration file."""
-            import expipe
-            expie.configure(data_path, email, password, url_prefix, api_key)
+        @cli.command('create')
+        @click.argument(
+            'project-id', type=click.STRING
+        )
+        def init(project_id):
+            """Create a project."""
+            cwd = os.getcwd()
+            path = pathlib.Path(cwd) / project_id
+            # server = expipe.load_filesystem(path.parent)
+            # project = server.require_project(project_id)
+            expipe_module.create_project(path)
 
 
 # ------------------------------------------------------------------------------
