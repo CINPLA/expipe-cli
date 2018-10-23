@@ -118,7 +118,7 @@ class Default(IPlugin):
             # project = server.require_project(project_id)
             expipe_module.create_project(path)
 
-        @cli.command('status')
+        @cli.command('status') # TODO add project id and spcialize firebase printing to not reveal confidential info
         def status():
             """Print project status."""
             config = load_config()
@@ -157,13 +157,8 @@ class Default(IPlugin):
         def set(project_id, **kw):
             """Create a project."""
             config = load_config(project_id)
-            if config['local'] == {}:
-                print('Current location is not recognized as a expipe project, aborting...')
-                return
-            assert config['local']['type'] == 'project'
             # server = expipe.load_filesystem(path.parent)
             # project = server.require_project(project_id)
-            project = expipe_module.get_project(config['local_root'])
             config['user'].update({k: v for k,v in kw.items() if v})
             config['user_root'].mkdir(exist_ok=True)
             yaml_dump(config['user_path'], config['user'])
