@@ -12,7 +12,7 @@ import os.path as op
 import sys
 import click
 import pathlib
-from .utils import discover_plugins, IPlugin
+from .utils import load_plugins, IPlugin
 import expipe as expipe_module
 try:
     import ruamel.yaml as yaml
@@ -47,25 +47,36 @@ def load_local_config(path):
             return None, None, {}
 
         return load_local_config(current_root.parent)
+    current_config = yaml_get(current_path) or {}
+    return current_root, current_path, current_config
 
-    return current_root, current_path, yaml_get(current_path)
+
+def load_global_config():
+    global_root = pathlib.Path.home() / '.config' / 'expipe'
+    global_config_path = global_root / 'expipe-config.yaml'
+    global_config = yaml_get(global_config_path) or {}
+    return global_root, global_config_path, global_config
+
+
+def load_user_config(project_id):
+    user_root = pathlib.Path.home() / '.config' / 'expipe' / project_id
+    user_config_path = (user_root / project_id).with_suffix('.yaml')
+    user_config = yaml_get(user_config_path) or {}
+    return user_root, user_config_path, user_config
 
 
 def load_config(project_id=None):
     # make paths
-    cwd = pathlib.Path('').cwd()
-    global_root = cwd.home() / '.config' / 'expipe'
-    global_config_path = global_root / 'expipe-config.yaml'
-    global_config = yaml_get(global_config_path) or {}
+    cwd = pathlib.Path.cwd()
+    global_root, global_config_path, global_config = load_global_config()
+
     # see if you are in a filesystem project
     local_root, local_path, local_config = load_local_config(cwd)
     if local_root is not None:
         assert project_id is None, 'project_id should not be given if in a filesystem project'
         project_id = local_root.stem
     assert project_id is not None, 'project_id should be given if not in a filesystem project'
-    user_root = global_root / project_id
-    user_config_path = (user_root / project_id).with_suffix('.yaml')
-    user_config = yaml_get(user_config_path) or {}
+    user_root, user_config_path, user_config = load_user_config(project_id)
     config = {
         'global': global_config,
         'global_path': global_config_path,
@@ -120,7 +131,7 @@ class Default(IPlugin):
         def status():
             """Print project status."""
             config = load_config()
-            if config['local'] == {}:
+            if config['local_root'] is None:
                 print('Unable to locate expipe configurations.')
                 return
             assert config['local']['type'] == 'project'
@@ -151,11 +162,34 @@ class Default(IPlugin):
         @click.option(
             '--location', type=click.STRING,
         )
-        def set(project_id, **kw):
+        @click.option(
+            '--plugin', '-p', type=click.STRING, multiple=True
+        )
+        def set_user(project_id, plugin, **kw):
             """Set local user info."""
             config = load_config(project_id)
+            if len(plugin) > 0:
+                plugins = [p for p in plugin]
+                kw['plugins'] = list(set(plugins))
             config['user'].update({k: v for k,v in kw.items() if v})
             config['user_root'].mkdir(exist_ok=True)
+            yaml_dump(config['user_path'], config['user'])
+
+        @cli.command('update')
+        @click.option(
+            '--project-id', type=click.STRING,
+        )
+        @click.option(
+            '--plugin', '-p', type=click.STRING, multiple=True
+        )
+        def set_user(project_id, plugin, **kw):
+            """Update local user info."""
+            config = load_config(project_id)
+            if len(plugin) > 0:
+                current_plugins = config['user'].get('plugins') or []
+                plugins = [p for p in plugin] + current_plugins
+                kw['plugins'] = list(set(plugins))
+            config['user'].update({k: v for k,v in kw.items() if v})
             yaml_dump(config['user_path'], config['user'])
 
         @cli.command('set-global')
@@ -168,7 +202,10 @@ class Default(IPlugin):
         @click.option(
             '--location', type=click.STRING,
         )
-        def set(**kw):
+        @click.option(
+            '--plugin', '-p', type=click.Path(exists=True), multiple=True
+        )
+        def set_global(plugin, **kw):
             """Set global user info."""
             config = load_config()
             config['global'].update({k: v for k,v in kw.items() if v})
@@ -179,11 +216,10 @@ class Default(IPlugin):
 # CLI plugins
 # ------------------------------------------------------------------------------
 
-
-def load_cli_plugins(cli, config_dir=None):
+def load_cli_plugins(cli, modules=None):
     """Load all plugins and attach them to a CLI object."""
-
-    plugins = discover_plugins()
+    modules = modules or []
+    plugins = load_plugins(modules)
     for plugin in plugins:
         if not hasattr(plugin, 'attach_to_cli'):
             continue
@@ -196,4 +232,18 @@ def load_cli_plugins(cli, config_dir=None):
 
 
 # Load all plugins when importing this module.
-load_cli_plugins(expipe)
+
+def list_plugins():
+    cwd = pathlib.Path.cwd()
+    global_root, global_config_path, global_config = load_global_config()
+    # see if you are in a filesystem project
+    local_root, local_path, local_config = load_local_config(cwd)
+    if local_root is not None:
+        user_root, user_config_path, user_config = load_user_config(local_root.stem)
+        user_plugins = user_config.get('plugins') or []
+    else:
+        user_plugins = []
+    global_plugins = global_config.get('plugins') or []
+    return global_plugins + user_plugins
+
+load_cli_plugins(expipe, list_plugins())
