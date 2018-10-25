@@ -105,7 +105,7 @@ class Default(IPlugin):
         )
         def create(project_id):
             """Create a project."""
-            cwd = os.getcwd()
+            cwd = pathlib.Path.cwd()
             root, _, _ = load_local_config(cwd)
             if root is not None:
                 print(
@@ -113,10 +113,8 @@ class Default(IPlugin):
                     'You are currently in "{}"'.format(root)
                 )
                 return
-            path = pathlib.Path(cwd) / project_id
-            # server = expipe.load_filesystem(path.parent)
-            # project = server.require_project(project_id)
-            expipe_module.create_project(path)
+            server = expipe_module.load_file_system(root=cwd)
+            server.create_project(project_id)
 
         @cli.command('status') # TODO add project id and spcialize firebase printing to not reveal confidential info
         def status():
@@ -126,9 +124,8 @@ class Default(IPlugin):
                 print('Unable to locate expipe configurations.')
                 return
             assert config['local']['type'] == 'project'
-            # server = expipe.load_filesystem(path.parent)
-            # project = server.require_project(project_id)
-            project = expipe_module.get_project(config['local_root'])
+            server = expipe_module.load_file_system(root=config['local_root'].parent)
+            server.get_project(config['local_root'].stem)
             print('Local configuration:')
             for k, v in config['local'].items():
                 print('\t{}: {}'.format(k, v))
@@ -155,10 +152,8 @@ class Default(IPlugin):
             '--location', type=click.STRING,
         )
         def set(project_id, **kw):
-            """Create a project."""
+            """Set local user info."""
             config = load_config(project_id)
-            # server = expipe.load_filesystem(path.parent)
-            # project = server.require_project(project_id)
             config['user'].update({k: v for k,v in kw.items() if v})
             config['user_root'].mkdir(exist_ok=True)
             yaml_dump(config['user_path'], config['user'])
@@ -174,7 +169,7 @@ class Default(IPlugin):
             '--location', type=click.STRING,
         )
         def set(**kw):
-            """Create a project."""
+            """Set global user info."""
             config = load_config()
             config['global'].update({k: v for k,v in kw.items() if v})
             config['global_root'].mkdir(exist_ok=True)
