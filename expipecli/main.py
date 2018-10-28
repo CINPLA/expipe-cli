@@ -90,6 +90,7 @@ def load_config(project_id=None):
 
     return config
 
+
 # ------------------------------------------------------------------------------
 # CLI tool
 # ------------------------------------------------------------------------------
@@ -116,16 +117,12 @@ class Default(IPlugin):
         def create(project_id):
             """Create a project."""
             cwd = pathlib.Path.cwd()
-            root, _, _ = load_local_config(cwd)
-            if root is not None:
-                print(
-                    'Cannot create a project inside a project. ' +
-                    'You are currently in "{}"'.format(root)
-                )
-                return
-            expipe_module.load_project(path=cwd / project_id)
+            try:
+                expipe_module.create_project(path=cwd / project_id)
+            except NameError as e:
+                print(str(e))
 
-        @cli.command('status') # TODO add project id and spcialize firebase printing to not reveal confidential info
+        @cli.command('status')
         def status():
             """Print project status."""
             config = load_config()
@@ -133,7 +130,6 @@ class Default(IPlugin):
                 print('Unable to locate expipe configurations.')
                 return
             assert config['local']['type'] == 'project'
-            server = expipe_module.load_project(path=config['local_root'])
             print('Local configuration:')
             for k, v in config['local'].items():
                 print('\t{}: {}'.format(k, v))
@@ -157,12 +153,12 @@ class Default(IPlugin):
                 print('Unable to locate expipe configurations.')
                 return
             assert config['local']['type'] == 'project'
-            project = expipe_module.load_project(path=config['local_root'])
+            project = expipe_module.get_project(path=config['local_root'])
             for object in getattr(project, object_type):
                 print(object)
 
 
-        @cli.command('config') # TODO add stuff
+        @cli.command('config')
         @click.argument(
             'target', type=click.Choice(['global', 'project', 'local'])
         )
@@ -170,18 +166,12 @@ class Default(IPlugin):
             '--project-id', type=click.STRING,
         )
         @click.option(
-            '--username', type=click.STRING,
-        )
-        @click.option(
-            '--email', type=click.STRING,
-        )
-        @click.option(
-            '--location', type=click.STRING,
-        )
-        @click.option(
             '--plugin', '-p', type=click.STRING, multiple=True
         )
-        def set_config(project_id, plugin, target, **kw):
+        @click.option(
+            '--add', '-a', nargs=2, multiple=True
+        )
+        def set_config(project_id, plugin, target, add):
             """Set config info."""
             config = load_config(project_id)
             if config[target + '_root'] is None:
@@ -189,10 +179,12 @@ class Default(IPlugin):
                     'Unable to load config, move into a project or ' +
                     'give "project-id" explicitly.')
                 return
+            add = list(add)
             if len(plugin) > 0:
-                plugins = [p for p in plugin]
-                kw['plugins'] = list(set(plugins))
-            config[target].update({k: v for k,v in kw.items() if v})
+                current_plugins = config[target].get('plugins') or []
+                plugins = [p for p in plugin] + current_plugins
+                add.append(('plugins', list(set(plugins))))
+            config[target].update({a[0]: a[1] for a in add})
             config[target + '_root'].mkdir(exist_ok=True)
             yaml_dump(config[target + '_path'], config[target])
 
