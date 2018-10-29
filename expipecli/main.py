@@ -14,82 +14,6 @@ import click
 import pathlib
 from .utils import load_plugins, IPlugin
 import expipe as expipe_module
-try:
-    import ruamel.yaml as yaml
-except ImportError:
-    import ruamel_yaml as yaml
-
-
-def yaml_dump(f, data):
-    assert f.suffix == '.yaml'
-    with f.open("w", encoding="utf-8") as fh:
-        yaml.dump(
-            data, fh,
-            default_flow_style=False,
-            allow_unicode=True,
-            Dumper=yaml.RoundTripDumper
-        )
-
-
-def yaml_get(path):
-    if not path.exists():
-        return None
-    with path.open('r', encoding='utf-8') as f:
-        result = yaml.load(f, Loader=yaml.Loader)
-    return result
-
-# TODO move to expipe
-def load_local_config(path):
-    current_root = pathlib.Path(path)
-    current_path = current_root / "expipe.yaml"
-    if not current_path.exists():
-        if current_root.match(current_path.root):
-            return None, None, {}
-
-        return load_local_config(current_root.parent)
-    current_config = yaml_get(current_path) or {}
-    return current_root, current_path, current_config
-
-
-def load_global_config():
-    global_root = pathlib.Path.home() / '.config' / 'expipe'
-    global_config_path = global_root / 'config.yaml'
-    global_config = yaml_get(global_config_path) or {}
-    return global_root, global_config_path, global_config
-
-
-def load_project_config(project_id=None):
-    if project_id is None:
-        return None, None, {}
-    project_root = pathlib.Path.home() / '.config' / 'expipe' / project_id
-    project_config_path = (project_root / project_id).with_suffix('.yaml')
-    project_config = yaml_get(project_config_path) or {}
-    return project_root, project_config_path, project_config
-
-
-def load_config(project_id=None):
-    # make paths
-    global_root, global_config_path, global_config = load_global_config()
-    # see if you are in a filesystem project
-    local_root, local_path, local_config = load_local_config(pathlib.Path.cwd())
-    if local_root is not None:
-        assert project_id is None, '"project-id" should not be given if in a filesystem project'
-        project_id = local_root.stem
-    project_root, project_config_path, project_config = load_project_config(project_id)
-    config = {
-        'global': global_config,
-        'global_path': global_config_path,
-        'global_root': global_root,
-        'project': project_config,
-        'project_path': project_config_path,
-        'project_root': project_root,
-        'local': local_config,
-        'local_path': local_path,
-        'local_root': local_root,
-    }
-
-    return config
-
 
 # ------------------------------------------------------------------------------
 # CLI tool
@@ -118,29 +42,20 @@ class Default(IPlugin):
             """Create a project."""
             cwd = pathlib.Path.cwd()
             try:
-                expipe_module.create_project(path=cwd / project_id)
-            except NameError as e:
+                expipe_module.create_project(path=cwd, name=project_id)
+            except KeyError as e:
                 print(str(e))
 
         @cli.command('status')
         def status():
             """Print project status."""
-            config = load_config()
-            if config['local_root'] is None:
-                print('Unable to locate expipe configurations.')
+            try:
+                project = expipe_module.get_project(path=pathlib.Path.cwd())
+            except KeyError as e:
+                print(str(e))
                 return
-            assert config['local']['type'] == 'project'
-            print('Local configuration:')
-            for k, v in config['local'].items():
-                print('\t{}: {}'.format(k, v))
-            print()
-            print('project configuration:')
-            for k, v in config['project'].items():
-                print('\t{}: {}'.format(k, v))
-            print()
-            print('Global configuration:')
-            for k, v in config['global'].items():
-                print('\t{}: {}'.format(k, v))
+            for k, v in project.config.items():
+                print('{}: {}'.format(k, v))
 
         @cli.command('list')
         @click.argument(
@@ -148,12 +63,11 @@ class Default(IPlugin):
         )
         def list_stuff(object_type):
             """Print project objects."""
-            config = load_config()
-            if config['local_root'] is None:
-                print('Unable to locate expipe configurations.')
+            try:
+                project = expipe_module.get_project(path=pathlib.Path.cwd())
+            except KeyError as e:
+                print(str(e))
                 return
-            assert config['local']['type'] == 'project'
-            project = expipe_module.get_project(path=config['local_root'])
             for object in getattr(project, object_type):
                 print(object)
 
@@ -173,20 +87,33 @@ class Default(IPlugin):
         )
         def set_config(project_id, plugin, target, add):
             """Set config info."""
-            config = load_config(project_id)
-            if config[target + '_root'] is None:
+            cwd = pathlib.Path.cwd()
+            local_root, _ = expipe_module.config._load_local_config()
+            if local_root is None and target != 'global':
                 print(
-                    'Unable to load config, move into a project or ' +
-                    'give "project-id" explicitly.')
+                    'Unable to load config, move into a project ' +
+                    'to configure target: "local" or "project". ' +
+                    'To only configure target: "project" give "--project-id".')
                 return
+            if target == 'local':
+                if project_id is not None:
+                    raise IOError(
+                        'Unable to find path to {}'.format(project_id))
+                path = local_root / 'expipe.yaml'
+                project_id = local_root.stem
+            if target == 'global':
+                path = None
+            if target == 'project':
+                path = project_id
             add = list(add)
+            config = expipe_module.config._load_config_by_name(path)
             if len(plugin) > 0:
-                current_plugins = config[target].get('plugins') or []
+                current_plugins = config.get('plugins') or []
                 plugins = [p for p in plugin] + current_plugins
                 add.append(('plugins', list(set(plugins))))
-            config[target].update({a[0]: a[1] for a in add})
-            config[target + '_root'].mkdir(exist_ok=True)
-            yaml_dump(config[target + '_path'], config[target])
+            config.update({a[0]: a[1] for a in add})
+
+            expipe_module.config._dump_config_by_name(path, config)
 
 
 # ------------------------------------------------------------------------------
@@ -212,15 +139,11 @@ def load_cli_plugins(cli, modules=None):
 
 def list_plugins():
     cwd = pathlib.Path.cwd()
-    global_root, global_config_path, global_config = load_global_config()
-    # see if you are in a filesystem project
-    local_root, local_path, local_config = load_local_config(cwd)
-    if local_root is not None:
-        project_root, project_config_path, project_config = load_project_config(local_root.stem)
-        project_plugins = project_config.get('plugins') or []
-    else:
-        project_plugins = []
-    global_plugins = global_config.get('plugins') or []
-    return global_plugins + project_plugins
+    try:
+        project = expipe_module.get_project(path=pathlib.Path.cwd())
+        config = project.config
+    except KeyError as e:
+        config = expipe_module.settings
+    return config['plugins']
 
 load_cli_plugins(expipe, list_plugins())
