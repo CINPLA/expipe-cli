@@ -60,17 +60,6 @@ def get_plugin(name):
 #------------------------------------------------------------------------------
 # Plugins discovery
 #------------------------------------------------------------------------------
-import warnings
-def _warning(
-    message,
-    category = UserWarning,
-    filename = '',
-    lineno = -1):
-    print()
-    print('WARNING:', message)
-    print()
-
-warnings.showwarning = _warning
 
 def load_plugins(modules):
     """Discover the plugin classes contained in Python files.
@@ -92,5 +81,5 @@ def load_plugins(modules):
         try:
             importlib.import_module(modname)
         except ImportError as e:
-            warnings.warn('Unable to import plugin. ' + str(e))
+            print('WARNING: Unable to import plugin. ' + str(e))
     return IPluginRegistry.plugins
