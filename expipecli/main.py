@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# flake8: noqa
 
 """CLI tool."""
 
@@ -12,8 +11,9 @@ import os
 import os.path as op
 import sys
 import click
-from .utils import discover_plugins, IPlugin
-
+import pathlib
+from .utils import load_plugins, IPlugin
+import expipe as expipe_module
 
 # ------------------------------------------------------------------------------
 # CLI tool
@@ -34,52 +34,116 @@ def expipe(ctx):
 
 class Default(IPlugin):
     def attach_to_cli(self, cli):
-        @cli.command('configure')
-        @click.option('--data-path',
-                      type=click.STRING,
-                      help='Path to where data files should be stored',
-                      )
-        @click.option('--email',
-                      type=click.STRING,
-                      help='User email on Firebase server',
-                      )
-        @click.option('--password',
-                      type=click.STRING,
-                      help='User password on Firebase server (WARNING: Will be stored in plain text!)',
-                      )
-        @click.option('--url_prefix',
-                      type=click.STRING,
-                      help='Prefix of Firebase server URL (https://<url_prefix>.firebaseio.com)',
-                      )
-        @click.option('--api_key',
-                      type=click.STRING,
-                      help='Firebase API key',
-                      )
-        def configure(data_path, email, password, url_prefix, api_key):
-            """Create a configuration file."""
-            import expipe
-            expie.configure(data_path, email, password, url_prefix, api_key)
+        @cli.command('create')
+        @click.argument(
+            'project-id', type=click.STRING
+        )
+        def create(project_id):
+            """Create a project."""
+            cwd = pathlib.Path.cwd()
+            try:
+                expipe_module.create_project(path=cwd, name=project_id)
+            except KeyError as e:
+                print(str(e))
+
+        @cli.command('status')
+        def status():
+            """Print project status."""
+            try:
+                project = expipe_module.get_project(path=pathlib.Path.cwd())
+            except KeyError as e:
+                print(str(e))
+                return
+            for k, v in project.config.items():
+                print('{}: {}'.format(k, v))
+
+        @cli.command('list')
+        @click.argument(
+            'object-type', type=click.Choice(['actions', 'entities', 'modules'])
+        )
+        def list_stuff(object_type):
+            """Print project objects."""
+            try:
+                project = expipe_module.get_project(path=pathlib.Path.cwd())
+            except KeyError as e:
+                print(str(e))
+                return
+            for object in getattr(project, object_type):
+                print(object)
+
+
+        @cli.command('config')
+        @click.argument(
+            'target', type=click.Choice(['global', 'project', 'local'])
+        )
+        @click.option(
+            '--project-id', type=click.STRING,
+        )
+        @click.option(
+            '--plugin', '-p', type=click.STRING, multiple=True
+        )
+        @click.option(
+            '--add', '-a', nargs=2, multiple=True
+        )
+        def set_config(project_id, plugin, target, add):
+            """Set config info."""
+            cwd = pathlib.Path.cwd()
+            local_root, _ = expipe_module.config._load_local_config()
+            if local_root is None and target != 'global':
+                print(
+                    'Unable to load config, move into a project ' +
+                    'to configure target: "local" or "project". ' +
+                    'To only configure target: "project" give "--project-id".')
+                return
+            if target == 'local':
+                if project_id is not None:
+                    raise IOError(
+                        'Unable to find path to {}'.format(project_id))
+                path = local_root / 'expipe.yaml'
+                project_id = local_root.stem
+            if target == 'global':
+                path = None
+            if target == 'project':
+                path = project_id
+            add = list(add)
+            config = expipe_module.config._load_config_by_name(path)
+            if len(plugin) > 0:
+                current_plugins = config.get('plugins') or []
+                plugins = [p for p in plugin] + current_plugins
+                add.append(('plugins', list(set(plugins))))
+            config.update({a[0]: a[1] for a in add})
+
+            expipe_module.config._dump_config_by_name(path, config)
 
 
 # ------------------------------------------------------------------------------
 # CLI plugins
 # ------------------------------------------------------------------------------
 
-
-def load_cli_plugins(cli, config_dir=None):
+def load_cli_plugins(cli, modules=None):
     """Load all plugins and attach them to a CLI object."""
-
-    plugins = discover_plugins()
+    modules = modules or []
+    plugins = load_plugins(modules)
     for plugin in plugins:
-        if not hasattr(plugin, 'attach_to_cli'):  # pragma: no cover
+        if not hasattr(plugin, 'attach_to_cli'):
             continue
         # NOTE: plugin is a class, so we need to instantiate it.
         try:
             plugin().attach_to_cli(cli)
-        except Exception as e:  # pragma: no cover
+        except Exception as e:
             print("Error when loading plugin `%s`" % plugin)
             raise e
 
 
 # Load all plugins when importing this module.
-load_cli_plugins(expipe)
+
+def list_plugins():
+    cwd = pathlib.Path.cwd()
+    try:
+        project = expipe_module.get_project(path=pathlib.Path.cwd())
+        config = project.config
+    except KeyError as e:
+        config = expipe_module.settings
+    return config['plugins']
+
+load_cli_plugins(expipe, list_plugins())
