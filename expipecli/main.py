@@ -11,6 +11,8 @@ import os
 import os.path as op
 import sys
 import click
+import json
+import subprocess
 import pathlib
 from .utils import load_plugins, IPlugin
 import expipe as expipe_module
@@ -45,6 +47,35 @@ class Default(IPlugin):
                 expipe_module.create_project(path=cwd, name=project_id)
             except KeyError as e:
                 print(str(e))
+
+        @cli.command('browser')
+        @click.option(
+            '--run', is_flag=True,
+        )
+        @click.option(
+            '--overwrite', is_flag=True,
+        )
+        def browser(run, overwrite):
+            """Open a jupyter notebook with project browser, notebook is stored in project root."""
+            try:
+                project = expipe_module.get_project(path=pathlib.Path.cwd())
+            except KeyError as e:
+                print(str(e))
+                return
+            project_root, _ = expipe_module.config._load_local_config(pathlib.Path.cwd())
+            fnameout = project_root / 'browser.ipynb'
+            utils_path = pathlib.Path(__file__).parent / 'utils'
+            fname = utils_path / 'browser-template.ipynb'
+            with fname.open('r') as infile:
+                notebook = json.load(infile)
+            notebook['cells'][1]['source'] = ['project_path = r"{}"'.format(project_root)]
+            print('Generating notebook "' + str(fnameout) + '"')
+            if fnameout.exists() and not overwrite:
+                raise FileExistsError('Browser notebook {} exists, use --overwrite'.format(fnameout))
+            with fnameout.open('w') as outfile:
+                    json.dump(notebook, outfile, sort_keys=True, indent=4)
+            if run:
+                subprocess.run(['jupyter', 'notebook', str(fnameout)])
 
         @cli.command('status')
         def status():
