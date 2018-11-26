@@ -44,7 +44,7 @@ class Default(IPlugin):
             """Create a project."""
             cwd = pathlib.Path.cwd()
             try:
-                expipe_module.create_project(path=cwd, name=project_id)
+                expipe_module.create_project(path=cwd / project_id)
             except KeyError as e:
                 print(str(e))
 
