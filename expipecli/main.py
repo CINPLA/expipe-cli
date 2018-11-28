@@ -132,8 +132,8 @@ class Default(IPlugin):
             if target == 'global':
                 path = None
             if target == 'project':
+                project_id = project_id or local_root.stem
                 path = project_id
-            add = list(add)
             config = expipe_module.config._load_config_by_name(path)
             plugin = [a[1] for a in add if a[0] == 'plugin']
             add = [a[1] for a in add if a[0] != 'plugin']
