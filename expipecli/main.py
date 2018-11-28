@@ -111,15 +111,12 @@ class Default(IPlugin):
             '--project-id', type=click.STRING,
         )
         @click.option(
-            '--plugin', '-p', type=click.STRING, multiple=True
-        )
-        @click.option(
             '--add', '-a', nargs=2, multiple=True
         )
-        def set_config(project_id, plugin, target, add):
+        def set_config(project_id, target, add):
             """Set config info."""
             cwd = pathlib.Path.cwd()
-            local_root, _ = expipe_module.config._load_local_config()
+            local_root, _ = expipe_module.config._load_local_config(cwd)
             if local_root is None and target != 'global':
                 print(
                     'Unable to load config, move into a project ' +
@@ -138,6 +135,8 @@ class Default(IPlugin):
                 path = project_id
             add = list(add)
             config = expipe_module.config._load_config_by_name(path)
+            plugin = [a[1] for a in add if a[0] == 'plugin']
+            add = [a[1] for a in add if a[0] != 'plugin']
             if len(plugin) > 0:
                 current_plugins = config.get('plugins') or []
                 plugins = [p for p in plugin] + current_plugins
