@@ -175,6 +175,6 @@ def list_plugins():
         config = project.config
     except KeyError as e:
         config = expipe_module.settings
-    return config['plugins']
+    return config.get('plugins')
 
 load_cli_plugins(expipe, list_plugins())
