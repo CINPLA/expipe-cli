@@ -52,9 +52,6 @@ class Default(IPlugin):
         @click.option(
             '--run', is_flag=True,
         )
-        @click.option(
-            '--overwrite', is_flag=True,
-        )
         def browser(run, overwrite):
             """Open a jupyter notebook with project browser, notebook is stored in project root."""
             try:
@@ -70,9 +67,8 @@ class Default(IPlugin):
                 notebook = json.load(infile)
             notebook['cells'][1]['source'] = ['project_path = r"{}"'.format(project_root)]
             print('Generating notebook "' + str(fnameout) + '"')
-            if fnameout.exists() and not overwrite:
-                raise FileExistsError('Browser notebook {} exists, use --overwrite'.format(fnameout))
-            with fnameout.open('w') as outfile:
+            if not fnameout.exists():
+                with fnameout.open('w') as outfile:
                     json.dump(notebook, outfile, sort_keys=True, indent=4)
             if run:
                 subprocess.run(['jupyter', 'notebook', str(fnameout)])
