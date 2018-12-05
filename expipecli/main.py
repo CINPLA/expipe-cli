@@ -48,6 +48,15 @@ class Default(IPlugin):
             except KeyError as e:
                 print(str(e))
 
+        @cli.command('init')
+        def init():
+            """Initialize a project."""
+            cwd = pathlib.Path.cwd()
+            try:
+                expipe_module.create_project(path=cwd, init=True)
+            except KeyError as e:
+                print(str(e))
+
         @cli.command('browser')
         @click.option(
             '--run', is_flag=True,
