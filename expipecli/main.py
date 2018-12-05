@@ -57,6 +57,25 @@ class Default(IPlugin):
             except KeyError as e:
                 print(str(e))
 
+        @cli.command('init-lfs')
+        def initlfs():
+            """Initialize a project."""
+            cwd = pathlib.Path.cwd()
+            try:
+                project = expipe_module.get_project(path=cwd)
+            except KeyError as e:
+                print(str(e))
+                return
+            project_path = project._backend.path
+            attributes_path = project_path / '.gitattributes'
+            with attributes_path.open('w') as f:
+                f.write('actions/*/data/**/* filter=lfs diff=lfs merge=lfs -text\n')
+                f.write('*.yaml !filter !diff !merge')
+            config_path = project_path / '.lfsconfig'
+            with config_path.open('w') as f:
+                f.write('[lfs]\n')
+                f.write('       fetchexclude = *')
+
         @cli.command('browser')
         @click.option(
             '--run', is_flag=True,
