@@ -57,50 +57,6 @@ class Default(IPlugin):
             except KeyError as e:
                 print(str(e))
 
-        @cli.command('init-lfs')
-        def initlfs():
-            """Initialize a project."""
-            cwd = pathlib.Path.cwd()
-            try:
-                project = expipe_module.get_project(path=cwd)
-            except KeyError as e:
-                print(str(e))
-                return
-            project_path = project._backend.path
-            attributes_path = project_path / '.gitattributes'
-            with attributes_path.open('w') as f:
-                f.write('actions/*/data/**/* filter=lfs diff=lfs merge=lfs -text\n')
-                f.write('*.yaml !filter !diff !merge')
-            config_path = project_path / '.lfsconfig'
-            with config_path.open('w') as f:
-                f.write('[lfs]\n')
-                f.write('       fetchexclude = *')
-
-        @cli.command('browser')
-        @click.option(
-            '--run', is_flag=True,
-        )
-        def browser(run, overwrite):
-            """Open a jupyter notebook with project browser, notebook is stored in project root."""
-            try:
-                project = expipe_module.get_project(path=pathlib.Path.cwd())
-            except KeyError as e:
-                print(str(e))
-                return
-            project_root, _ = expipe_module.config._load_local_config(pathlib.Path.cwd())
-            fnameout = project_root / 'browser.ipynb'
-            utils_path = pathlib.Path(__file__).parent / 'utils'
-            fname = utils_path / 'browser-template.ipynb'
-            with fname.open('r') as infile:
-                notebook = json.load(infile)
-            notebook['cells'][1]['source'] = ['project_path = r"{}"'.format(project_root)]
-            print('Generating notebook "' + str(fnameout) + '"')
-            if not fnameout.exists():
-                with fnameout.open('w') as outfile:
-                    json.dump(notebook, outfile, sort_keys=True, indent=4)
-            if run:
-                subprocess.run(['jupyter', 'notebook', str(fnameout)])
-
         @cli.command('status')
         def status():
             """Print project status."""
